@@ -1,0 +1,39 @@
+{
+  "name": "logpilot",
+  "version": "1.0.0",
+  "description": "Zero-config function-level structured logging for Node.js and TypeScript",
+  "author": "darksol",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/cjs/index.cjs",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/esm/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "clean": "node -e \"const fs=require('fs'); fs.rmSync('dist',{recursive:true,force:true}); fs.rmSync('dist-tests',{recursive:true,force:true});\"",
+    "build:esm": "tsc -p tsconfig.esm.json",
+    "build:cjs": "tsc -p tsconfig.cjs.json && node -e \"const fs=require('fs'); const path=require('path'); function walk(dir){ for(const entry of fs.readdirSync(dir,{withFileTypes:true})){ const full=path.join(dir,entry.name); if(entry.isDirectory()) walk(full); else if(entry.isFile() && full.endsWith('.js')) fs.renameSync(full, full.slice(0,-3)+'.cjs'); }} if(fs.existsSync('dist/cjs')) walk('dist/cjs');\"",
+    "build": "npm run clean && npm run build:esm && npm run build:cjs",
+    "build:tests": "tsc -p tsconfig.tests.json",
+    "test": "npm run build:tests && node --test \"dist-tests/tests/*.test.js\""
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "typescript": "^5.8.2"
+  }
+}
