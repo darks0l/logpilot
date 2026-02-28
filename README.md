@@ -1,144 +1,112 @@
+<p align="center">
+  <img src="./assets/darksol-logo.png" alt="DARKSOL" width="140" />
+</p>
+
 # logpilot
 
-Zero-config function-level structured logging for JavaScript and TypeScript.
+Zero-config function-level structured logging for JavaScript and TypeScript services.
 
-## Install
+[![npm version](https://img.shields.io/npm/v/%40darksol%2Flogpilot)](https://www.npmjs.com/package/@darksol/logpilot)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![node >=18](https://img.shields.io/badge/node-%3E%3D18-339933.svg)](https://nodejs.org)
+
+## Why this exists
+
+Most app logs are either too noisy or not structured enough to debug production issues quickly. `logpilot` wraps your functions and emits consistent events (args, duration, result/error, context) without forcing a logger migration.
+
+## What it does
+
+- Wraps sync/async functions with structured success/error events
+- Adds timestamps, duration, and function metadata automatically
+- Supports redaction of sensitive keys (`password`, `token`, etc.)
+- Offers global config + scoped child loggers
+- Includes Express/Fastify-compatible middleware helper
+- Can wrap object/class methods for bulk instrumentation
+
+## Quickstart
 
 ```bash
-npm install logpilot
+npm install @darksol/logpilot
 ```
 
-## Quick Start
-
 ```ts
-import { pilot } from "logpilot";
-const sum = pilot((a: number, b: number) => a + b);
-await sum(2, 3);
-```
+import { pilot } from "@darksol/logpilot";
 
-## Full API Reference
-
-### `pilot(fn, options?)`
-Wrap any function and auto-log function name, args, result, duration, timestamp, and errors.
-
-```ts
-const wrapped = pilot(async (id: string) => ({ id }));
-const user = await wrapped("u_1");
-```
-
-### `pilot.configure(opts)`
-Global runtime configuration.
-
-```ts
 pilot.configure({
   level: "info",
   format: "auto",
-  output: console,
-  redact: ["password", "token", "secret", "key", "authorization"],
-  context: { service: "my-api", version: "1.0" },
-  onError: (err, ctx) => {
-    // global hook
-  },
-  silent: false
+  context: { service: "billing-api" }
 });
+
+const sum = pilot((a: number, b: number) => a + b);
+const result = await sum(2, 3);
 ```
 
-### `pilot.child(context)`
-Create scoped logger with inherited global config.
+## Real examples
 
 ```ts
-const log = pilot.child({ requestId: "abc-123" });
-await log(async () => "ok")();
+import { pilot } from "@darksol/logpilot";
+
+const getUser = pilot(async (id: string) => ({ id, role: "admin" }));
+await getUser("u_1");
+
+const reqLog = pilot.child({ requestId: "req-42" });
+reqLog.info("request started", { route: "/users/:id" });
 ```
 
-### `pilot.middleware()`
-Express/Fastify-compatible request middleware.
-
 ```ts
-app.use(pilot.middleware());
-```
-
-### `pilot.wrap(obj)`
-Wrap object/class methods for automatic logging.
-
-```ts
-const db = pilot.wrap(database);
-await db.findUser("u_1");
-```
-
-### Direct Logging
-
-```ts
-pilot.info("message", { extra: "data" });
-pilot.warn("something weird");
-pilot.error("failed", { err });
-pilot.debug("verbose stuff");
-```
-
-## Middleware Example
-
-```ts
-import express from "express";
-import { pilot } from "logpilot";
-
-const app = express();
-app.use(pilot.middleware());
-```
-
-## Object Wrapping Example
-
-```ts
+// Wrap methods on an existing object
 class Service {
   getOrder(id: string) {
-    return { id };
+    return { id, status: "ok" };
   }
 }
 
 const service = pilot.wrap(new Service());
-service.getOrder("o-1");
+service.getOrder("o_100");
 ```
 
-## Redaction Example
+## Config / options
 
-```ts
-pilot.configure({ redact: ["password", "token", "secret", "key", "authorization"] });
-await pilot(async (body: unknown) => body)({ email: "a@b.com", password: "123" });
-```
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `level` | `"debug" \| "info" \| "warn" \| "error"` | `"info"` | Minimum log level |
+| `format` | `"auto" \| "pretty" \| "json"` | `"auto"` | Output format (`auto` picks pretty unless `NODE_ENV=production`) |
+| `output` | logger-like object | `console` | Destination with `info/warn/error/debug/log` or `.write()` |
+| `redact` | `string[]` | sensible defaults | Case-insensitive key masking list |
+| `context` | `Record<string, unknown>` | `{}` | Global fields merged into each event |
+| `onError` | callback | `undefined` | Hook invoked when wrapper/middleware catches errors |
+| `silent` | `boolean` | `false` | Disable log output entirely |
 
-## Child Logger Example
+## Architecture / flow
 
-```ts
-const requestLog = pilot.child({ requestId: "req-42" });
-requestLog.info("request started", { route: "/users" });
-```
+1. `pilot(fn)` creates a thin wrapper around your function.
+2. On invocation, it captures start time + context.
+3. On success/failure, it emits one structured event with metadata.
+4. Formatter renders event as pretty text or JSON.
+5. Output is written to configured destination.
 
-## Configuration Reference
+## Benchmarks / perf notes
 
-- `level`: `debug | info | warn | error`
-- `format`: `auto | pretty | json` (`auto` = pretty unless `NODE_ENV=production`)
-- `output`: console-like object with `info/warn/error/debug/log` or a `.write()` method
-- `redact`: case-insensitive key match list for sensitive field masking
-- `context`: global structured fields merged into every log event
-- `onError`: callback for wrapper and middleware errors
-- `silent`: disable all log output when `true`
+`logpilot` is intentionally lightweight (zero runtime dependencies). It adds small wrapper overhead from timing, serialization, and output I/O. For latency-sensitive paths, prefer JSON output and conservative payload sizes.
 
-## Pretty vs JSON Output
+## Limitations + roadmap
 
-Pretty (development):
+### Current limitations
 
-```text
-2026-02-28T10:00:00.000Z INFO function:success {"functionName":"fetchUser","durationMs":2.1}
-```
+- No built-in log shipping (expects host platform/collector)
+- Redaction is key-based (not full PII detection)
+- Middleware helper targets common Express/Fastify request shapes
 
-JSON (production):
+### Roadmap
 
-```json
-{"timestamp":"2026-02-28T10:00:00.000Z","level":"info","event":"function:success","functionName":"fetchUser","durationMs":2.1}
-```
+- Optional custom serializer hooks
+- Additional middleware adapters with typed helpers
+- Extended docs for high-throughput production setups
 
-## Contributing
+## License + links
 
-1. Fork and clone.
-2. Run `npm install`.
-3. Run `npm test` before opening a PR.
-4. Keep runtime dependency count at zero.
+- License: [MIT](./LICENSE)
+- Changelog: [CHANGELOG.md](./CHANGELOG.md)
+- npm: <https://www.npmjs.com/package/@darksol/logpilot>
+- Issues: <https://github.com/darks0l/logpilot/issues>

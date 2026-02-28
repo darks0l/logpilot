@@ -1,7 +1,7 @@
 {
   "name": "@darksol/logpilot",
-  "version": "1.0.0",
-  "description": "Zero-config function-level structured logging for Node.js and TypeScript",
+  "version": "1.0.1",
+  "description": "Zero-config function-level structured logging for JavaScript and TypeScript services.",
   "author": "darksol",
   "license": "MIT",
   "type": "module",
@@ -18,11 +18,20 @@
   "files": [
     "dist",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "sideEffects": false,
   "engines": {
     "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/darks0l/logpilot.git"
+  },
+  "homepage": "https://github.com/darks0l/logpilot#readme",
+  "bugs": {
+    "url": "https://github.com/darks0l/logpilot/issues"
   },
   "scripts": {
     "clean": "node -e \"const fs=require('fs'); fs.rmSync('dist',{recursive:true,force:true}); fs.rmSync('dist-tests',{recursive:true,force:true});\"",
