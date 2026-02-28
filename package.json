@@ -1,5 +1,5 @@
 {
-  "name": "logpilot",
+  "name": "@darksol/logpilot",
   "version": "1.0.0",
   "description": "Zero-config function-level structured logging for Node.js and TypeScript",
   "author": "darksol",
